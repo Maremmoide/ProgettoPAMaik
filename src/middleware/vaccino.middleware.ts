@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { vaccinoDao } from "../dao/VaccinoDao";
 import { AppErrorsMessage } from "../enum/AppErrorsMessage";
-import { lottoVaccinoDao } from "../dao/LottoVaccinoDao";
 
 // Verifica che il vaccino esista (per get singolo, update, delete)
 export async function checkVaccinoExistsById(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -18,7 +17,7 @@ export async function checkVaccinoExistsById(req: Request, res: Response, next: 
         return;
     }
 
-    (req as any).targetVaccino = vaccino;
+    req.targetVaccino = vaccino;
     next();
 }
 
@@ -65,7 +64,7 @@ export async function checkNomeVaccinoExists(req: Request, res: Response, next: 
     }
 
     // salva il vaccino trovato per evitare query duplicate nel controller
-    (req as any).vaccinoFiltro = vaccino;
+    req.vaccinoFiltro = vaccino;
     next();
 }
 
@@ -127,7 +126,7 @@ const { nomeVaccino } = req.query;
     }
 
     // salva i vaccini trovati per evitare query duplicate nel controller
-    (req as any).vaccinoFiltro = risultati;
+    req.vaccinoFiltro = risultati;
     next();
 }
 

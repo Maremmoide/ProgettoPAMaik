@@ -3,7 +3,6 @@ import { vaccinazioneService } from "../service/VaccinazioneService";
 import { AppErrorsName } from "../enum/AppErrorsName";
 import { AppErrorsMessage } from "../enum/AppErrorsMessage";
 import { AppSuccessMessage } from "../enum/AppSuccessMessage";
-import { AppJwtPayload } from "../types/jwt-payload";
 import redis from "../config/redis";
 
 export class VaccinazioneController {
@@ -52,7 +51,7 @@ export class VaccinazioneController {
 
     async generateCoperturaCode(req: Request, res: Response): Promise<void> {
         try {
-            const targetUser = (req as any).targetUser;
+            const targetUser = req.targetUser!;
             const cf = targetUser.cf;
 
             const code = await vaccinazioneService.createCoperturaCode(cf, 10);
@@ -74,10 +73,10 @@ export class VaccinazioneController {
         */
     async createVaccinazione(req: Request, res: Response): Promise<void> {
         try {
-            const targetUser = (req as any).targetUser;
-            const lotto = (req as any).lotto;
-            const vaccino = (req as any).vaccino;
-            const dataVaccinazione = (req as any).dataVaccinazione;
+            const targetUser = req.targetUser!;
+            const lotto = req.lotto!;
+            const vaccino = req.vaccino!;
+            const dataVaccinazione = req.dataVaccinazione!;
  
             const vaccinazione = await vaccinazioneService.createVaccinazione({
                 user_cf: targetUser.cf,
@@ -87,8 +86,8 @@ export class VaccinazioneController {
             });
  
             res.status(201).json({ message: AppSuccessMessage.VACCINAZIONE_CREATED, vaccinazione });
-        } catch (error: any) {
-            if (error.name === AppErrorsName.DISPONIBILITA_VACCINO_INSUFFICIENTE) {
+        } catch (error) {
+            if (error instanceof Error && error.name === AppErrorsName.DISPONIBILITA_VACCINO_INSUFFICIENTE) {
                 res.status(409).json({ error: AppErrorsMessage.DISPONIBILITA_VACCINO_INSUFFICIENTE });
                 return;
             }
@@ -108,8 +107,8 @@ export class VaccinazioneController {
             const targetId = Number(req.params.id);
             const vaccinazione = await vaccinazioneService.getVaccinazioneById(targetId);
             res.status(200).json(vaccinazione);
-        } catch (error: any) {
-            if (error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
+        } catch (error) {
+            if (error instanceof Error && error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
                 res.status(404).json({ error: AppErrorsMessage.VACCINAZIONE_NOT_FOUND });
             } else {
                 res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
@@ -142,8 +141,8 @@ export class VaccinazioneController {
             const targetId = Number(req.params.id);
             const vaccinazione = await vaccinazioneService.updateVaccinazione(targetId, req.body);
             res.status(200).json({ message: AppSuccessMessage.VACCINAZIONE_UPDATED, vaccinazione });
-        } catch (error: any) {
-            if (error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
+        } catch (error) {
+            if (error instanceof Error && error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
                 res.status(404).json({ error: AppErrorsMessage.VACCINAZIONE_NOT_FOUND });
             } else {
                 res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
@@ -163,8 +162,8 @@ export class VaccinazioneController {
             const targetId = Number(req.params.id);
             await vaccinazioneService.deleteVaccinazione(targetId);
             res.status(200).json({ message: AppSuccessMessage.VACCINAZIONE_DELETED });
-        } catch (error: any) {
-            if (error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
+        } catch (error) {
+            if (error instanceof Error && error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
                 res.status(404).json({ error: AppErrorsMessage.VACCINAZIONE_NOT_FOUND });
             } else {
                 res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
@@ -179,7 +178,7 @@ export class VaccinazioneController {
         */
     async pdfVaccinazione(req: Request, res: Response): Promise<void> {
         try {
-            const requester = (req as any).user as AppJwtPayload;
+            const requester = req.user!;
             const isAdmin = requester.roles?.includes("admin") || requester.roles?.includes("operator");
 
             let targetCf: string;
@@ -201,8 +200,8 @@ export class VaccinazioneController {
             res.setHeader("Content-Disposition", `attachment; filename="vaccinazioni_${targetCf}.pdf"`);
 
             res.status(200).send(pdfBuffer);
-        } catch (error: any) {
-            if (error.name === AppErrorsName.USER_NOT_FOUND) {
+        } catch (error) {
+            if (error instanceof Error && error.name === AppErrorsName.USER_NOT_FOUND) {
                 res.status(404).json({ error: AppErrorsMessage.USER_NOT_FOUND });
             } else {
                 res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
@@ -218,7 +217,7 @@ export class VaccinazioneController {
 
     async getFilteredVaccinazioni(req: Request, res: Response): Promise<void> {
         try {
-            const requester = (req as any).user as AppJwtPayload;
+            const requester = req.user!;
             const isAdmin = requester.roles?.includes("admin") || requester.roles?.includes("operator");
 
             let targetCf: string;
@@ -244,8 +243,8 @@ export class VaccinazioneController {
             });
 
             res.status(200).json(vaccinazioni);
-        } catch (error: any) {
-            if (error.name === AppErrorsName.USER_NOT_FOUND) {
+        } catch (error) {
+            if (error instanceof Error && error.name === AppErrorsName.USER_NOT_FOUND) {
                 res.status(404).json({ error: AppErrorsMessage.USER_NOT_FOUND });
             } else {
                 res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
@@ -261,7 +260,7 @@ export class VaccinazioneController {
 
     async getCoperturaReport(req: Request, res: Response): Promise<void> {
         try {
-            const requester = (req as any).user as AppJwtPayload;
+            const requester = req.user!;
             const isAdmin = requester.roles?.includes("admin") || requester.roles?.includes("operator");
 
             // admin: vede tutti (a meno che non passi un cf specifico in query, opzionale)
@@ -285,7 +284,7 @@ export class VaccinazioneController {
 
     async getCoperturaPdf(req: Request, res: Response): Promise<void> {
         try {
-            const requester = (req as any).user as AppJwtPayload;
+            const requester = req.user!;
             const isAdmin = requester.roles?.includes("admin") || requester.roles?.includes("operator");
 
             const targetCf = isAdmin ? (req.query.cf as string | undefined) : requester.cf;

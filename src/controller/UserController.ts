@@ -28,7 +28,7 @@ export class UserController {
         */
     async getUserById(req: Request, res: Response): Promise<void> {
         try {
-            const user = (req as any).targetUser;
+            const user = req.targetUser!;
             res.status(200).json(sanitizeUser(user));
         } catch {
             res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });

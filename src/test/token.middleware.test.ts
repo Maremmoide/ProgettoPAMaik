@@ -1,17 +1,18 @@
+import { Request, Response } from "express";
 import { correctAmount } from "../middleware/token.middleware";
 import { AppErrorsMessage } from "../enum/AppErrorsMessage";
 
 describe("correctAmount", () => {
 
     test("restituisce 400 se amount manca", async () => {
-        const req: any = {
+        const req = {
             body: {}
-        };
+        } as Partial<Request> as Request;
 
-        const res: any = {
+        const res = {
             status: jest.fn().mockReturnThis(),
             json: jest.fn()
-        };
+        } as Partial<Response> as Response;
 
         const next = jest.fn();
 
@@ -25,16 +26,16 @@ describe("correctAmount", () => {
     });
 
     test("chiama next se amount è valido", async () => {
-        const req: any = {
+        const req = {
             body: {
                 amount: 10
             }
-        };
+        } as Partial<Request> as Request;
 
-        const res: any = {
+        const res = {
             status: jest.fn().mockReturnThis(),
             json: jest.fn()
-        };
+        } as Partial<Response> as Response;
 
         const next = jest.fn();
 

@@ -58,13 +58,14 @@ app.use("/api", lottoVaccinoRoutes);
 app.use("/api/vaccinazioni", vaccinazioneRoutes)
 
 // Error handler globale
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => {
   console.log("ERRORE COMPLETO:", err);
   if (err.status === 401) {
     return res.status(401).json({ error: AppErrorsMessage.INVALID_JWT_TOKEN });
   }
   return res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
-});
+};
+app.use(errorHandler);
 
 app.listen(process.env.PORT || 3000, () => {
   console.log("Server running on http://localhost:3000");

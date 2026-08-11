@@ -1,4 +1,4 @@
-import { vaccinoDao } from "../dao/VaccinoDao";
+import { vaccinoDao, VaccinoSearchFilters } from "../dao/VaccinoDao";
 import { userDao } from "../dao/UserDao";
 
 
@@ -30,7 +30,7 @@ export class VaccinoService {
         return vaccinoDao.findById(targetId);
     }
 
-    async searchVaccini(filters: any) {
+    async searchVaccini(filters: VaccinoSearchFilters) {
         return vaccinoDao.searchVaccini(filters);
     }
 

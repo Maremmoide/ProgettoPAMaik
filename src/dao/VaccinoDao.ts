@@ -1,14 +1,24 @@
 import { IDao } from "./IDao";
-import { Op, fn, col, literal } from "sequelize";
-import { sequelize } from "../connector/connector";
-import { QueryTypes } from "sequelize";
+import { Op, fn, col, WhereOptions, WhereOperators } from "sequelize";
 import {
     Vaccino,
     VaccinoAttributes,
     VaccinoCreationAttributes
 } from "../model/Vaccino";
-import { LottoVaccino } from "../model/LottoVaccino";
+import { LottoVaccino, LottoVaccinoAttributes } from "../model/LottoVaccino";
 import { Vaccinazione } from "../model/Vaccinazione";
+
+/*
+    * Filtri opzionali accettati da searchVaccini. Arrivano tipicamente da req.query,
+    * quindi ogni valore è la stringa così come ricevuta dalla querystring.
+    */
+export interface VaccinoSearchFilters {
+    nome?: string;
+    scadenzaMaggioreDi?: string;
+    scadenzaMinoreDi?: string;
+    disponibilitaMin?: string;
+    disponibilitaMax?: string;
+}
 
 
 /*
@@ -55,36 +65,32 @@ export class VaccinoDao implements IDao<Vaccino> {
     * @returns Un array di vaccini che soddisfano i criteri di ricerca, con la disponibilità totale calcolata per ciascun vaccino.
 */
 
-    async searchVaccini(filters: any) {
-
-        const whereVaccino: any = {};
-        const whereLotto: any = {};
+    async searchVaccini(filters: VaccinoSearchFilters) {
 
         // ======================
         // FILTRO NOME
         // ======================
 
-        if (filters.nome) {
+        const nome: WhereOperators<string> | undefined = filters.nome
+            ? { [Op.in]: filters.nome.split(",").map((n) => n.trim()) }
+            : undefined;
 
-            const nomi = String(filters.nome)
-                .split(",")
-                .map((n: string) => n.trim());
-
-            whereVaccino.nome = {
-                [Op.in]: nomi
-            };
-        }
+        const whereVaccino: WhereOptions<VaccinoAttributes> = {
+            ...(nome && { nome }),
+        };
 
         // ======================
         // FILTRO SCADENZA
         // ======================
+
+        let dataScadenza: WhereOperators<Date> | undefined;
 
         if (
             filters.scadenzaMaggioreDi &&
             filters.scadenzaMinoreDi
         ) {
 
-            whereLotto.dataScadenza = {
+            dataScadenza = {
                 [Op.between]: [
                     new Date(filters.scadenzaMaggioreDi),
                     new Date(filters.scadenzaMinoreDi)
@@ -93,16 +99,20 @@ export class VaccinoDao implements IDao<Vaccino> {
 
         } else if (filters.scadenzaMaggioreDi) {
 
-            whereLotto.dataScadenza = {
+            dataScadenza = {
                 [Op.gte]: new Date(filters.scadenzaMaggioreDi)
             };
 
         } else if (filters.scadenzaMinoreDi) {
 
-            whereLotto.dataScadenza = {
+            dataScadenza = {
                 [Op.lte]: new Date(filters.scadenzaMinoreDi)
             };
         }
+
+        const whereLotto: WhereOptions<LottoVaccinoAttributes> = {
+            ...(dataScadenza && { dataScadenza }),
+        };
 
         const vaccini = await Vaccino.findAll({
 
@@ -160,7 +170,7 @@ export class VaccinoDao implements IDao<Vaccino> {
             disponibilitaMax === undefined
         ) {
             result = result.filter(
-                (v: any) =>
+                (v) =>
                     Number(
                         v.get("disponibilitaTotale")
                     ) >= disponibilitaMin
@@ -174,7 +184,7 @@ export class VaccinoDao implements IDao<Vaccino> {
             disponibilitaMin === undefined
         ) {
             result = result.filter(
-                (v: any) =>
+                (v) =>
                     Number(
                         v.get("disponibilitaTotale")
                     ) <= disponibilitaMax
@@ -188,7 +198,7 @@ export class VaccinoDao implements IDao<Vaccino> {
             disponibilitaMax !== undefined
         ) {
             result = result.filter(
-                (v: any) => {
+                (v) => {
 
                     const q = Number(
                         v.get("disponibilitaTotale")
@@ -234,7 +244,7 @@ export class VaccinoDao implements IDao<Vaccino> {
             ]
         });
 
-        return vaccini.map((vaccino: any) => {
+        return vaccini.map((vaccino) => {
 
             const mesi: Record<number, number[]> = {};
 
@@ -250,17 +260,9 @@ export class VaccinoDao implements IDao<Vaccino> {
 
                 const mese = data.getMonth() + 1;
 
-                const anno = data.getFullYear();
-
                 if (!mesi[mese]) {
                     mesi[mese] = [];
-                }
-
-                let posizioneAnno =
-                    mesi[mese].findIndex(
-                        (_: any, index: number) => false
-                    );
-
+                };
                 // uso una mappa temporanea
             }
 
@@ -350,7 +352,7 @@ export class VaccinoDao implements IDao<Vaccino> {
 
                             lotti.reduce(
 
-                                (somma: number, lotto: any) =>
+                                (somma: number, lotto) =>
                                     somma +
                                     lotto.quantitaDisponibile,
 

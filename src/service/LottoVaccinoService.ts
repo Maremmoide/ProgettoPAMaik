@@ -6,18 +6,28 @@ import { lottoVaccinoDao } from "../dao/LottoVaccinoDao";
     * Utilizza il LottoVaccinoDao per interagire con il database.
     */
 
+/*
+    * Corpo della richiesta di creazione di un lotto. Le date arrivano come stringa
+    * dal JSON del body (req.body), per questo sono tipizzate string | Date.
+    */
+export interface LottoVaccinoCreationPayload {
+    codiceLotto: string;
+    quantitaDisponibile: number;
+    dataConsegna: string | Date;
+    dataScadenza: string | Date;
+}
 
 export class LottoVaccinoService {
 
-    async createLotto(vaccinoId: number, data: any) {
+    async createLotto(vaccinoId: number, data: LottoVaccinoCreationPayload) {
         // vaccino esistente e unicità codiceLotto già verificati dai middleware
         // checkVaccinoExists e checkCodiceLottoUnique sulla rotta
         return lottoVaccinoDao.create({
             vaccinoId,
             codiceLotto: data.codiceLotto,
             quantitaDisponibile: data.quantitaDisponibile,
-            dataConsegna: data.dataConsegna,
-            dataScadenza: data.dataScadenza
+            dataConsegna: new Date(data.dataConsegna),
+            dataScadenza: new Date(data.dataScadenza)
         });
     }
 

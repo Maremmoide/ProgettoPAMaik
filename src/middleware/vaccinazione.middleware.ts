@@ -20,7 +20,7 @@ export async function checkUserExists(req: Request, res: Response, next: NextFun
         return;
     }
 
-    (req as any).targetUser = user;
+    req.targetUser = user;
     next();
 }
 
@@ -39,14 +39,14 @@ export async function checkLottoValid(req: Request, res: Response, next: NextFun
         return;
     }
 
-    (req as any).lotto = lotto;
+    req.lotto = lotto;
     next();
 }
 
 // 3. Vaccino (lotto) non scaduto rispetto alla data di vaccinazione
 export async function checkVaccineNotExpired(req: Request, res: Response, next: NextFunction): Promise<void> {
     const { data_vaccinazione } = req.body;
-    const lotto = (req as any).lotto;
+    const lotto = req.lotto!;
 
     if (!data_vaccinazione) {
         res.status(400).json({ error: AppErrorsMessage.MISSING_DATA });
@@ -65,15 +65,15 @@ export async function checkVaccineNotExpired(req: Request, res: Response, next: 
         return;
     }
 
-    (req as any).dataVaccinazione = dataVacc;
+    req.dataVaccinazione = dataVacc;
     next();
 }
 
 // 4. Copertura non ancora esaurita (vaccinazione anticipata)
 export async function checkCoverageExpired(req: Request, res: Response, next: NextFunction): Promise<void> {
     const { cf } = req.body;
-    const lotto = (req as any).lotto;
-    const dataVacc = (req as any).dataVaccinazione;
+    const lotto = req.lotto!;
+    const dataVacc = req.dataVaccinazione!;
 
     const vaccino = await vaccinoDao.findById(lotto.vaccinoId);
     if (!vaccino) {
@@ -93,7 +93,7 @@ export async function checkCoverageExpired(req: Request, res: Response, next: Ne
         }
     }
 
-    (req as any).vaccino = vaccino;
+    req.vaccino = vaccino;
     next();
 }
 

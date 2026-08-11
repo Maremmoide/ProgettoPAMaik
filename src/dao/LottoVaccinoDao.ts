@@ -1,6 +1,6 @@
 import { IDao } from "./IDao";
-import { Op, literal, Transaction } from "sequelize";
-import { LottoVaccino } from "../model/LottoVaccino";
+import { Op, literal, Transaction, WhereOptions, WhereOperators } from "sequelize";
+import { LottoVaccino, LottoVaccinoAttributes, LottoVaccinoCreationAttributes } from "../model/LottoVaccino";
 
 
 /*
@@ -12,15 +12,15 @@ import { LottoVaccino } from "../model/LottoVaccino";
 export class LottoVaccinoDao implements IDao<LottoVaccino> {
 
 
-    async create(item: any): Promise<LottoVaccino> {
+    async create(item: LottoVaccinoCreationAttributes): Promise<LottoVaccino> {
         return await LottoVaccino.create(item);
     }
 
-    async read(item: any): Promise<LottoVaccino | null> {
+    async read(item: LottoVaccinoAttributes): Promise<LottoVaccino | null> {
         return await LottoVaccino.findByPk(item.id);
     }
 
-    async update(item: any, updatedItem: any): Promise<LottoVaccino | null> {
+    async update(item: Partial<LottoVaccinoAttributes>, updatedItem: Partial<LottoVaccinoAttributes>): Promise<LottoVaccino | null> {
         const lotto = await LottoVaccino.findByPk(item.id);
         if (!lotto) return null;
 
@@ -59,23 +59,22 @@ export class LottoVaccinoDao implements IDao<LottoVaccino> {
         max?: number
     ): Promise<LottoVaccino[]> {
 
-        const where: any = { vaccinoId };
+        let quantitaDisponibile: WhereOperators<number> | undefined;
 
         if (min !== undefined && max !== undefined) {
-            where.quantitaDisponibile = {
-                [Op.between]: [min, max]
-            };
+            quantitaDisponibile = { [Op.between]: [min, max] };
         }
         else if (min !== undefined) {
-            where.quantitaDisponibile = {
-                [Op.gte]: min
-            };
+            quantitaDisponibile = { [Op.gte]: min };
         }
         else if (max !== undefined) {
-            where.quantitaDisponibile = {
-                [Op.lte]: max
-            };
+            quantitaDisponibile = { [Op.lte]: max };
         }
+
+        const where: WhereOptions<LottoVaccinoAttributes> = {
+            vaccinoId,
+            ...(quantitaDisponibile && { quantitaDisponibile }),
+        };
 
         return LottoVaccino.findAll({ where });
     }
@@ -103,7 +102,7 @@ export class LottoVaccinoDao implements IDao<LottoVaccino> {
 
     async decrementQuantitaIfAvailable(id: number, options?: { transaction?: Transaction }): Promise<boolean> {
         const [affectedRows] = await LottoVaccino.update(
-            { quantitaDisponibile: literal('"quantita_disponibile" - 1') as any },
+            { quantitaDisponibile: literal('"quantita_disponibile" - 1') },
             { where: { id, quantitaDisponibile: { [Op.gt]: 0 } }, ...options }
         );
         return affectedRows > 0;

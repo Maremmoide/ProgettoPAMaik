@@ -18,7 +18,7 @@ export async function checkVaccinoExists(req: Request, res: Response, next: Next
         return;
     }
 
-    (req as any).vaccino = vaccino;
+    req.vaccino = vaccino;
     next();
 }
 

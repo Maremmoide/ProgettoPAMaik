@@ -27,10 +27,10 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 
     try {
         const payload = jwt.verify(token, publicKey, { algorithms: ["RS256"] }) as AppJwtPayload;
-        (req as any).user = payload;
+        req.user = payload;
         next();
-    } catch (error: any) {
-        if (error.name === "TokenExpiredError") {
+    } catch (error) {
+        if (error instanceof jwt.TokenExpiredError) {
             res.status(401).json({ error: AppErrorsMessage.TOKEN_EXPIRED });
         } else {
             res.status(401).json({ error: AppErrorsMessage.INVALID_TOKEN });
@@ -46,7 +46,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 
 export function requireRole(...roles: ("user" | "operator" | "admin" | "both")[]) {
     return (req: Request, res: Response, next: NextFunction): void => {
-        const user = (req as any).user as AppJwtPayload;
+        const user = req.user;
 
         if (!user || !roles.some(role => user.roles.includes(role))) {
             res.status(403).json({ error: AppErrorsMessage.PERMISSION_DENIED });

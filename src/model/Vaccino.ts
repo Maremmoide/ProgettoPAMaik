@@ -1,5 +1,7 @@
 import * as Sequelize from 'sequelize';
 import { DataTypes, Optional, Model } from 'sequelize';
+import type { LottoVaccino } from './LottoVaccino';
+import type { Vaccinazione } from './Vaccinazione';
 
 /*
     * Modello Sequelize per la tabella "vaccini".
@@ -17,8 +19,7 @@ export interface VaccinoAttributes {
 
 // Interfaccia per la creazione
 
-export interface VaccinoCreationAttributes
-    extends Optional<VaccinoAttributes, 'id'> {}
+export type VaccinoCreationAttributes = Optional<VaccinoAttributes, 'id'>;
 
 // Classe modello Vaccino, implementa gli attributi definiti sopra
 
@@ -32,6 +33,12 @@ export class Vaccino
 
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;
+
+    // Popolate solo quando la query le include esplicitamente (vedi le associazioni
+    // Vaccino.hasMany(LottoVaccino, { as: "lotti" }) e Vaccino.hasMany(Vaccinazione) in Init_models.ts;
+    // quest'ultima non ha un alias esplicito, quindi Sequelize usa il default "Vaccinaziones").
+    public readonly lotti?: LottoVaccino[];
+    public readonly Vaccinaziones?: Vaccinazione[];
 }
 
 /*

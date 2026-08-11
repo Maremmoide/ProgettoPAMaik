@@ -18,6 +18,6 @@ export async function userExist(req: Request, res: Response, next: NextFunction)
         return;
     }
 
-    (req as any).targetUser = user;
+    req.targetUser = user;
     next();
 }

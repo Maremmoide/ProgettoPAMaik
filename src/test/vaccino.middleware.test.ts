@@ -1,3 +1,4 @@
+import { Request, Response } from "express";
 import { checkVaccinoExistsById, checkVaccinoQueryExistsById } from "../middleware/vaccino.middleware";
 import { vaccinoDao } from "../dao/VaccinoDao";
 import { AppErrorsMessage } from "../enum/AppErrorsMessage";
@@ -17,14 +18,14 @@ describe("checkVaccinoExistsById", () => {
             nome: "Pfizer"
         });
 
-        const req: any = {
+        const req = {
             params: { id: "1" }
-        };
+        } as Partial<Request> as Request;
 
-        const res: any = {
+        const res = {
             status: jest.fn().mockReturnThis(),
             json: jest.fn()
-        };
+        } as Partial<Response> as Response;
 
         const next = jest.fn();
 
@@ -38,14 +39,14 @@ describe("checkVaccinoExistsById", () => {
         .mockResolvedValueOnce({ id: 1, nome: "Pfizer" })
         .mockResolvedValueOnce({ id: 2, nome: "Moderna" });
 
-    const req: any = {
+    const req = {
         query: { nomeVaccino: "Pfizer, Moderna" }
-    };
+    } as Partial<Request> as Request;
 
-    const res: any = {
+    const res = {
         status: jest.fn().mockReturnThis(),
         json: jest.fn()
-    };
+    } as Partial<Response> as Response;
 
     const next = jest.fn();
 

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { adminController } from "../controller/AdminController";
 import { authenticate, requireRole } from "../middleware/auth.middleware";
-import { vaccinazioneController, VaccinazioneController } from "../controller/VaccinazioneController";
+import { vaccinazioneController } from "../controller/VaccinazioneController";
 import { userExist } from "../middleware/redis.middleware";
 import { correctAmount } from "../middleware/token.middleware";
 

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { vaccinoService } from "../service/VaccinoService";
+import { VaccinoSearchFilters } from "../dao/VaccinoDao";
 import { AppErrorsMessage } from "../enum/AppErrorsMessage";
 import { AppSuccessMessage } from "../enum/AppSuccessMessage";
 
@@ -28,7 +29,7 @@ export class VaccinoController {
 
     async getVaccinoById(req: Request, res: Response): Promise<void> {
         try {
-            const vaccino = (req as any).targetVaccino;
+            const vaccino = req.targetVaccino!;
             res.status(200).json(vaccino);
         } catch {
             res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
@@ -72,7 +73,7 @@ export class VaccinoController {
         */
 
     async searchVaccini(req: Request, res: Response): Promise<void> {
-            const vaccini = await vaccinoService.searchVaccini(req.query);
+            const vaccini = await vaccinoService.searchVaccini(req.query as VaccinoSearchFilters);
             res.status(200).json(vaccini);
     }
 

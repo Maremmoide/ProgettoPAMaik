@@ -1,7 +1,6 @@
 import {IDao} from "./IDao";
 import { Vaccinazione } from "../model/Vaccinazione";
 import { Vaccino } from "../model/Vaccino";
-import { fn, col, where } from "sequelize";
 import {User, UserAttributes, UserCreationAttributes} from "../model/User";
 import { Op, literal } from "sequelize";
 
@@ -96,17 +95,17 @@ export class UserDao implements IDao<User> {
 
         const oggi = new Date();
 
-        return utenti.filter((u: any) => {
+        return utenti.filter((u) => {
 
             const vaccinazioni = u.vaccinazioni  ?? [];
 
-            return vaccinazioni.some((v: any) => {
+            return vaccinazioni.some((v) => {
 
                 const dataVaccino =
                     new Date(v.dataVaccinazione);
 
                 const durata =
-                    v.Vaccino.durataCopertura;
+                    v.Vaccino!.durataCopertura;
 
                 const scadenza =
                     new Date(dataVaccino);
@@ -185,7 +184,7 @@ export class UserDao implements IDao<User> {
         let tra31e90 = 0;
         let oltre90 = 0;
 
-        for (const u of utenti as any[]) {
+        for (const u of utenti) {
 
             const vaccinazioni = u.vaccinazioni ?? [];
 
@@ -199,7 +198,7 @@ export class UserDao implements IDao<User> {
 
                 scadenza.setDate(
                     scadenza.getDate() +
-                    v.Vaccino.durataCopertura
+                    v.Vaccino!.durataCopertura
                 );
 
                 const giorniScaduti = Math.floor(
@@ -246,7 +245,7 @@ export class UserDao implements IDao<User> {
 
     async decrementTokenIfAvailable(cf: string): Promise<boolean> {
         const [affectedRows] = await User.update(
-            { token: literal('"token" - 1') as any },
+            { token: literal('"token" - 1') },
             { where: { cf, token: { [Op.gt]: 0 } } }
         );
         return affectedRows > 0;

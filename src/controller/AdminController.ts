@@ -11,7 +11,7 @@ export class AdminController{
  async increaseUserTokens(req: Request, res: Response): Promise<void> {
     try {
         const { amount } = req.body;
-        const targetUser = (req as any).targetUser;
+        const targetUser = req.targetUser!;
 
         const user = await userDao.increaseTokens(targetUser.cf, amount);
 

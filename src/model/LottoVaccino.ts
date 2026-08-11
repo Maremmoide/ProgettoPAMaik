@@ -20,8 +20,7 @@ export interface LottoVaccinoAttributes {
 // Interfaccia per creazione attributi vaccino
 
 
-export interface LottoVaccinoCreationAttributes
-    extends Optional<LottoVaccinoAttributes, 'id'> {}
+export type LottoVaccinoCreationAttributes = Optional<LottoVaccinoAttributes, 'id'>;
 
 // Model classe lottovaccino che estende le due interfaccie
 

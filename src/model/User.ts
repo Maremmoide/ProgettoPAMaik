@@ -1,5 +1,6 @@
 import * as Sequelize from 'sequelize';
 import { DataTypes, Optional, Model } from 'sequelize';
+import type { Vaccinazione } from './Vaccinazione';
 
 /*
     * Modello Sequelize per la tabella "users".
@@ -18,7 +19,7 @@ export interface UserAttributes {
     role: 'admin' | 'user' | 'operator' | 'both'; // "both" = utente con ruoli sia user che operator
 }
 
-export interface UserCreationAttributes extends Optional<UserAttributes, 'cf' | 'token'> { }
+export type UserCreationAttributes = Optional<UserAttributes, 'cf' | 'token'>;
 
 // Classe modello User, implementa gli attributi definiti sopra
 
@@ -32,6 +33,10 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
 
     public readonly createdAt!: Date;
     public readonly updatedAt!: Date;
+
+    // Popolato solo quando la query usa { include: [{ model: Vaccinazione, as: "vaccinazioni" }] }
+    // (vedi User.hasMany(Vaccinazione, { as: "vaccinazioni" }) in Init_models.ts).
+    public readonly vaccinazioni?: Vaccinazione[];
 }
 
 /*

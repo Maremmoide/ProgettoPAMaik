@@ -204,7 +204,7 @@ export class VaccinazioneService {
 
                 let y = drawTableHeader(doc.y);
 
-                for (const v of vaccinazioni as any[]) {
+                for (const v of vaccinazioni) {
                     if (y > doc.page.height - 80) {
                         doc.addPage();
                         y = drawTableHeader(50);
@@ -267,9 +267,9 @@ export class VaccinazioneService {
         const vaccinazioni = await vaccinazioneDao.findAllWithDetails(userCf);
         const oggi = new Date();
 
-        const results: CoperturaResult[] = (vaccinazioni as any[]).map((v) => {
+        const results: CoperturaResult[] = vaccinazioni.map((v) => {
             const dataVacc = new Date(v.dataVaccinazione);
-            const durata = v.Vaccino.durataCopertura;
+            const durata = v.Vaccino!.durataCopertura;
 
             const fineCopertura = new Date(dataVacc);
             fineCopertura.setDate(fineCopertura.getDate() + durata);
@@ -280,7 +280,7 @@ export class VaccinazioneService {
             return {
                 vaccinazioneId: v.id,
                 userCf: v.userCf,
-                vaccino: v.Vaccino.nome,
+                vaccino: v.Vaccino!.nome,
                 dataVaccinazione: dataVacc,
                 fineCopertura,
                 giorniDifferenza,
@@ -316,7 +316,7 @@ export class VaccinazioneService {
 
         const oggi = new Date();
 
-        vaccinazioni.sort((a: any, b: any) => {
+        vaccinazioni.sort((a, b) => {
             const fineA = new Date(a.dataVaccinazione);
             fineA.setDate(fineA.getDate() + (a.Vaccino?.durataCopertura ?? 0));
 
@@ -392,7 +392,7 @@ export class VaccinazioneService {
 
                 let y = drawTableHeader(doc.y);
 
-                for (const v of vaccinazioni as any[]) {
+                for (const v of vaccinazioni) {
                     if (y > doc.page.height - 80) {
                         doc.addPage();
                         y = drawTableHeader(50);

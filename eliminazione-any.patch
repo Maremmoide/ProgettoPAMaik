@@ -1,0 +1,1135 @@
+diff --git a/src/@types/express/index.d.ts b/src/@types/express/index.d.ts
+new file mode 100644
+index 0000000..1d61690
+--- /dev/null
++++ b/src/@types/express/index.d.ts
+@@ -0,0 +1,52 @@
++import type { User } from "../../model/User";
++import type { Vaccino } from "../../model/Vaccino";
++import type { LottoVaccino } from "../../model/LottoVaccino";
++import type { AppJwtPayload } from "../../types/jwt-payload";
++
++/*
++    * Estende l'oggetto Request di Express con le proprietà custom che i middleware
++    * dell'applicazione allegano alla richiesta prima che questa raggiunga il controller.
++    * Centralizza qui i vari (req as any).campo che erano sparsi nel codice, così ogni
++    * proprietà è tipizzata una sola volta invece di essere ri-castata ad ogni utilizzo.
++    */
++
++declare global {
++    namespace Express {
++        interface Request {
++            /** Payload del JWT decodificato, allegato da authenticate() in auth.middleware.ts. */
++            user?: AppJwtPayload;
++
++            /**
++             * Utente target risolto da un middleware di validazione prima del controller
++             * (checkUserExists in vaccinazione.middleware.ts, userExist in redis.middleware.ts).
++             */
++            targetUser?: User;
++
++            /** Vaccino risolto da checkVaccinoExistsById in vaccino.middleware.ts. */
++            targetVaccino?: Vaccino;
++
++            /**
++             * Vaccino risolto da checkCoverageExpired in vaccinazione.middleware.ts,
++             * oppure da checkVaccinoExists in lottovaccino.middleware.ts.
++             */
++            vaccino?: Vaccino;
++
++            /** Lotto risolto da checkLottoValid in vaccinazione.middleware.ts. */
++            lotto?: LottoVaccino;
++
++            /** Data di vaccinazione validata da checkVaccineNotExpired in vaccinazione.middleware.ts. */
++            dataVaccinazione?: Date;
++
++            /**
++             * Risultato del filtro per nome vaccino in vaccino.middleware.ts: un singolo vaccino
++             * da checkNomeVaccinoExists, oppure un array da checkVaccinoQueryExistsById quando la
++             * query contiene più nomi separati da virgola.
++             */
++            vaccinoFiltro?: Vaccino | Array<{ id: number; nome: string }>;
++        }
++    }
++}
++
++// Richiesto perché TypeScript tratti questo file come un modulo (necessario per "declare global"),
++// senza che esporti realmente nulla a runtime.
++export {};
+diff --git a/src/controller/AdminController.ts b/src/controller/AdminController.ts
+index df21915..da2e834 100644
+--- a/src/controller/AdminController.ts
++++ b/src/controller/AdminController.ts
+@@ -11,7 +11,7 @@ export class AdminController{
+  async increaseUserTokens(req: Request, res: Response): Promise<void> {
+     try {
+         const { amount } = req.body;
+-        const targetUser = (req as any).targetUser;
++        const targetUser = req.targetUser!;
+ 
+         const user = await userDao.increaseTokens(targetUser.cf, amount);
+ 
+diff --git a/src/controller/AuthController.ts b/src/controller/AuthController.ts
+index 877bbf7..2d9acf1 100644
+--- a/src/controller/AuthController.ts
++++ b/src/controller/AuthController.ts
+@@ -19,9 +19,9 @@ export class AuthController {
+         const { email, password } = req.body;
+         const token = await authService.login(email, password);
+         res.status(200).json({ token });
+-    } catch (error: any) {
++    } catch (error) {
+         console.error("Errore durante il login:", error);
+-        if (error.name === AppErrorsName.INVALID_CREDENTIALS) {
++        if (error instanceof Error && error.name === AppErrorsName.INVALID_CREDENTIALS) {
+             res.status(401).json({ error: AppErrorsMessage.INVALID_CREDENTIALS });
+         } else {
+             res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
+diff --git a/src/controller/UserController.ts b/src/controller/UserController.ts
+index 0b1e81c..e0804d9 100644
+--- a/src/controller/UserController.ts
++++ b/src/controller/UserController.ts
+@@ -28,7 +28,7 @@ export class UserController {
+         */
+     async getUserById(req: Request, res: Response): Promise<void> {
+         try {
+-            const user = (req as any).targetUser;
++            const user = req.targetUser!;
+             res.status(200).json(sanitizeUser(user));
+         } catch {
+             res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
+diff --git a/src/controller/VaccinazioneController.ts b/src/controller/VaccinazioneController.ts
+index 2c9713a..b653a4b 100644
+--- a/src/controller/VaccinazioneController.ts
++++ b/src/controller/VaccinazioneController.ts
+@@ -3,7 +3,6 @@ import { vaccinazioneService } from "../service/VaccinazioneService";
+ import { AppErrorsName } from "../enum/AppErrorsName";
+ import { AppErrorsMessage } from "../enum/AppErrorsMessage";
+ import { AppSuccessMessage } from "../enum/AppSuccessMessage";
+-import { AppJwtPayload } from "../types/jwt-payload";
+ import redis from "../config/redis";
+ 
+ export class VaccinazioneController {
+@@ -52,7 +51,7 @@ export class VaccinazioneController {
+ 
+     async generateCoperturaCode(req: Request, res: Response): Promise<void> {
+         try {
+-            const targetUser = (req as any).targetUser;
++            const targetUser = req.targetUser!;
+             const cf = targetUser.cf;
+ 
+             const code = await vaccinazioneService.createCoperturaCode(cf, 10);
+@@ -74,10 +73,10 @@ export class VaccinazioneController {
+         */
+     async createVaccinazione(req: Request, res: Response): Promise<void> {
+         try {
+-            const targetUser = (req as any).targetUser;
+-            const lotto = (req as any).lotto;
+-            const vaccino = (req as any).vaccino;
+-            const dataVaccinazione = (req as any).dataVaccinazione;
++            const targetUser = req.targetUser!;
++            const lotto = req.lotto!;
++            const vaccino = req.vaccino!;
++            const dataVaccinazione = req.dataVaccinazione!;
+  
+             const vaccinazione = await vaccinazioneService.createVaccinazione({
+                 user_cf: targetUser.cf,
+@@ -87,8 +86,8 @@ export class VaccinazioneController {
+             });
+  
+             res.status(201).json({ message: AppSuccessMessage.VACCINAZIONE_CREATED, vaccinazione });
+-        } catch (error: any) {
+-            if (error.name === AppErrorsName.DISPONIBILITA_VACCINO_INSUFFICIENTE) {
++        } catch (error) {
++            if (error instanceof Error && error.name === AppErrorsName.DISPONIBILITA_VACCINO_INSUFFICIENTE) {
+                 res.status(409).json({ error: AppErrorsMessage.DISPONIBILITA_VACCINO_INSUFFICIENTE });
+                 return;
+             }
+@@ -108,8 +107,8 @@ export class VaccinazioneController {
+             const targetId = Number(req.params.id);
+             const vaccinazione = await vaccinazioneService.getVaccinazioneById(targetId);
+             res.status(200).json(vaccinazione);
+-        } catch (error: any) {
+-            if (error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
++        } catch (error) {
++            if (error instanceof Error && error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
+                 res.status(404).json({ error: AppErrorsMessage.VACCINAZIONE_NOT_FOUND });
+             } else {
+                 res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
+@@ -142,8 +141,8 @@ export class VaccinazioneController {
+             const targetId = Number(req.params.id);
+             const vaccinazione = await vaccinazioneService.updateVaccinazione(targetId, req.body);
+             res.status(200).json({ message: AppSuccessMessage.VACCINAZIONE_UPDATED, vaccinazione });
+-        } catch (error: any) {
+-            if (error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
++        } catch (error) {
++            if (error instanceof Error && error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
+                 res.status(404).json({ error: AppErrorsMessage.VACCINAZIONE_NOT_FOUND });
+             } else {
+                 res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
+@@ -163,8 +162,8 @@ export class VaccinazioneController {
+             const targetId = Number(req.params.id);
+             await vaccinazioneService.deleteVaccinazione(targetId);
+             res.status(200).json({ message: AppSuccessMessage.VACCINAZIONE_DELETED });
+-        } catch (error: any) {
+-            if (error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
++        } catch (error) {
++            if (error instanceof Error && error.name === AppErrorsName.VACCINAZIONE_NOT_FOUND) {
+                 res.status(404).json({ error: AppErrorsMessage.VACCINAZIONE_NOT_FOUND });
+             } else {
+                 res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
+@@ -179,7 +178,7 @@ export class VaccinazioneController {
+         */
+     async pdfVaccinazione(req: Request, res: Response): Promise<void> {
+         try {
+-            const requester = (req as any).user as AppJwtPayload;
++            const requester = req.user!;
+             const isAdmin = requester.roles?.includes("admin") || requester.roles?.includes("operator");
+ 
+             let targetCf: string;
+@@ -201,8 +200,8 @@ export class VaccinazioneController {
+             res.setHeader("Content-Disposition", `attachment; filename="vaccinazioni_${targetCf}.pdf"`);
+ 
+             res.status(200).send(pdfBuffer);
+-        } catch (error: any) {
+-            if (error.name === AppErrorsName.USER_NOT_FOUND) {
++        } catch (error) {
++            if (error instanceof Error && error.name === AppErrorsName.USER_NOT_FOUND) {
+                 res.status(404).json({ error: AppErrorsMessage.USER_NOT_FOUND });
+             } else {
+                 res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
+@@ -218,7 +217,7 @@ export class VaccinazioneController {
+ 
+     async getFilteredVaccinazioni(req: Request, res: Response): Promise<void> {
+         try {
+-            const requester = (req as any).user as AppJwtPayload;
++            const requester = req.user!;
+             const isAdmin = requester.roles?.includes("admin") || requester.roles?.includes("operator");
+ 
+             let targetCf: string;
+@@ -244,8 +243,8 @@ export class VaccinazioneController {
+             });
+ 
+             res.status(200).json(vaccinazioni);
+-        } catch (error: any) {
+-            if (error.name === AppErrorsName.USER_NOT_FOUND) {
++        } catch (error) {
++            if (error instanceof Error && error.name === AppErrorsName.USER_NOT_FOUND) {
+                 res.status(404).json({ error: AppErrorsMessage.USER_NOT_FOUND });
+             } else {
+                 res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
+@@ -261,7 +260,7 @@ export class VaccinazioneController {
+ 
+     async getCoperturaReport(req: Request, res: Response): Promise<void> {
+         try {
+-            const requester = (req as any).user as AppJwtPayload;
++            const requester = req.user!;
+             const isAdmin = requester.roles?.includes("admin") || requester.roles?.includes("operator");
+ 
+             // admin: vede tutti (a meno che non passi un cf specifico in query, opzionale)
+@@ -285,7 +284,7 @@ export class VaccinazioneController {
+ 
+     async getCoperturaPdf(req: Request, res: Response): Promise<void> {
+         try {
+-            const requester = (req as any).user as AppJwtPayload;
++            const requester = req.user!;
+             const isAdmin = requester.roles?.includes("admin") || requester.roles?.includes("operator");
+ 
+             const targetCf = isAdmin ? (req.query.cf as string | undefined) : requester.cf;
+diff --git a/src/controller/VaccinoController.ts b/src/controller/VaccinoController.ts
+index 504bdb8..44f73bc 100644
+--- a/src/controller/VaccinoController.ts
++++ b/src/controller/VaccinoController.ts
+@@ -1,5 +1,6 @@
+ import { Request, Response } from "express";
+ import { vaccinoService } from "../service/VaccinoService";
++import { VaccinoSearchFilters } from "../dao/VaccinoDao";
+ import { AppErrorsMessage } from "../enum/AppErrorsMessage";
+ import { AppSuccessMessage } from "../enum/AppSuccessMessage";
+ 
+@@ -28,7 +29,7 @@ export class VaccinoController {
+ 
+     async getVaccinoById(req: Request, res: Response): Promise<void> {
+         try {
+-            const vaccino = (req as any).targetVaccino;
++            const vaccino = req.targetVaccino!;
+             res.status(200).json(vaccino);
+         } catch {
+             res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
+@@ -72,7 +73,7 @@ export class VaccinoController {
+         */
+ 
+     async searchVaccini(req: Request, res: Response): Promise<void> {
+-            const vaccini = await vaccinoService.searchVaccini(req.query);
++            const vaccini = await vaccinoService.searchVaccini(req.query as VaccinoSearchFilters);
+             res.status(200).json(vaccini);
+     }
+ 
+diff --git a/src/dao/LottoVaccinoDao.ts b/src/dao/LottoVaccinoDao.ts
+index 4393f31..ef8ce12 100644
+--- a/src/dao/LottoVaccinoDao.ts
++++ b/src/dao/LottoVaccinoDao.ts
+@@ -1,6 +1,6 @@
+ import { IDao } from "./IDao";
+-import { Op, literal, Transaction } from "sequelize";
+-import { LottoVaccino } from "../model/LottoVaccino";
++import { Op, literal, Transaction, WhereOptions, WhereOperators } from "sequelize";
++import { LottoVaccino, LottoVaccinoAttributes, LottoVaccinoCreationAttributes } from "../model/LottoVaccino";
+ 
+ 
+ /*
+@@ -12,15 +12,15 @@ import { LottoVaccino } from "../model/LottoVaccino";
+ export class LottoVaccinoDao implements IDao<LottoVaccino> {
+ 
+ 
+-    async create(item: any): Promise<LottoVaccino> {
++    async create(item: LottoVaccinoCreationAttributes): Promise<LottoVaccino> {
+         return await LottoVaccino.create(item);
+     }
+ 
+-    async read(item: any): Promise<LottoVaccino | null> {
++    async read(item: LottoVaccinoAttributes): Promise<LottoVaccino | null> {
+         return await LottoVaccino.findByPk(item.id);
+     }
+ 
+-    async update(item: any, updatedItem: any): Promise<LottoVaccino | null> {
++    async update(item: Partial<LottoVaccinoAttributes>, updatedItem: Partial<LottoVaccinoAttributes>): Promise<LottoVaccino | null> {
+         const lotto = await LottoVaccino.findByPk(item.id);
+         if (!lotto) return null;
+ 
+@@ -59,24 +59,23 @@ export class LottoVaccinoDao implements IDao<LottoVaccino> {
+         max?: number
+     ): Promise<LottoVaccino[]> {
+ 
+-        const where: any = { vaccinoId };
++        let quantitaDisponibile: WhereOperators<number> | undefined;
+ 
+         if (min !== undefined && max !== undefined) {
+-            where.quantitaDisponibile = {
+-                [Op.between]: [min, max]
+-            };
++            quantitaDisponibile = { [Op.between]: [min, max] };
+         }
+         else if (min !== undefined) {
+-            where.quantitaDisponibile = {
+-                [Op.gte]: min
+-            };
++            quantitaDisponibile = { [Op.gte]: min };
+         }
+         else if (max !== undefined) {
+-            where.quantitaDisponibile = {
+-                [Op.lte]: max
+-            };
++            quantitaDisponibile = { [Op.lte]: max };
+         }
+ 
++        const where: WhereOptions<LottoVaccinoAttributes> = {
++            vaccinoId,
++            ...(quantitaDisponibile && { quantitaDisponibile }),
++        };
++
+         return LottoVaccino.findAll({ where });
+     }
+ 
+@@ -103,7 +102,7 @@ export class LottoVaccinoDao implements IDao<LottoVaccino> {
+ 
+     async decrementQuantitaIfAvailable(id: number, options?: { transaction?: Transaction }): Promise<boolean> {
+         const [affectedRows] = await LottoVaccino.update(
+-            { quantitaDisponibile: literal('"quantita_disponibile" - 1') as any },
++            { quantitaDisponibile: literal('"quantita_disponibile" - 1') },
+             { where: { id, quantitaDisponibile: { [Op.gt]: 0 } }, ...options }
+         );
+         return affectedRows > 0;
+diff --git a/src/dao/UserDao.ts b/src/dao/UserDao.ts
+index 6cc386b..410a3f6 100644
+--- a/src/dao/UserDao.ts
++++ b/src/dao/UserDao.ts
+@@ -96,17 +96,17 @@ export class UserDao implements IDao<User> {
+ 
+         const oggi = new Date();
+ 
+-        return utenti.filter((u: any) => {
++        return utenti.filter((u) => {
+ 
+             const vaccinazioni = u.vaccinazioni  ?? [];
+ 
+-            return vaccinazioni.some((v: any) => {
++            return vaccinazioni.some((v) => {
+ 
+                 const dataVaccino =
+                     new Date(v.dataVaccinazione);
+ 
+                 const durata =
+-                    v.Vaccino.durataCopertura;
++                    v.Vaccino!.durataCopertura;
+ 
+                 const scadenza =
+                     new Date(dataVaccino);
+@@ -185,7 +185,7 @@ export class UserDao implements IDao<User> {
+         let tra31e90 = 0;
+         let oltre90 = 0;
+ 
+-        for (const u of utenti as any[]) {
++        for (const u of utenti) {
+ 
+             const vaccinazioni = u.vaccinazioni ?? [];
+ 
+@@ -199,7 +199,7 @@ export class UserDao implements IDao<User> {
+ 
+                 scadenza.setDate(
+                     scadenza.getDate() +
+-                    v.Vaccino.durataCopertura
++                    v.Vaccino!.durataCopertura
+                 );
+ 
+                 const giorniScaduti = Math.floor(
+@@ -246,7 +246,7 @@ export class UserDao implements IDao<User> {
+ 
+     async decrementTokenIfAvailable(cf: string): Promise<boolean> {
+         const [affectedRows] = await User.update(
+-            { token: literal('"token" - 1') as any },
++            { token: literal('"token" - 1') },
+             { where: { cf, token: { [Op.gt]: 0 } } }
+         );
+         return affectedRows > 0;
+diff --git a/src/dao/VaccinazioneDao.ts b/src/dao/VaccinazioneDao.ts
+index f6d561e..a709ce9 100644
+--- a/src/dao/VaccinazioneDao.ts
++++ b/src/dao/VaccinazioneDao.ts
+@@ -1,7 +1,7 @@
+ import { IDao } from "./IDao";
+ import { Vaccinazione, VaccinazioneAttributes, VaccinazioneCreationAttributes } from "../model/Vaccinazione";
+-import { Op, WhereOptions, Transaction } from "sequelize";
+-import { Vaccino } from "../model/Vaccino";
++import { Op, WhereOptions, WhereOperators, Transaction } from "sequelize";
++import { Vaccino, VaccinoAttributes } from "../model/Vaccino";
+ import { LottoVaccino } from "../model/LottoVaccino";
+ 
+ 
+@@ -114,21 +114,30 @@ export class VaccinazioneDao implements IDao<Vaccinazione> {
+     */
+ 
+     async findFilteredByUserCf(userCf: string, filters: VaccinazioneFilters): Promise<Vaccinazione[]> {
+-    const where: WhereOptions = { userCf };
++
++    let dataVaccinazione: WhereOperators<Date> | undefined;
+ 
+     // Filtro data: range ha priorità se entrambi min e max sono presenti
+     if (filters.dataMin && filters.dataMax) {
+-        (where as any).dataVaccinazione = { [Op.between]: [filters.dataMin, filters.dataMax] };
++        dataVaccinazione = { [Op.between]: [filters.dataMin, filters.dataMax] };
+     } else if (filters.dataGt) {
+-        (where as any).dataVaccinazione = { [Op.gt]: filters.dataGt };
++        dataVaccinazione = { [Op.gt]: filters.dataGt };
+     } else if (filters.dataLt) {
+-        (where as any).dataVaccinazione = { [Op.lt]: filters.dataLt };
++        dataVaccinazione = { [Op.lt]: filters.dataLt };
+     }
+ 
+-    const vaccinoWhere: WhereOptions = {};
+-    if (filters.nomeVaccino) {
+-        (vaccinoWhere as any).nome = { [Op.iLike]: `%${filters.nomeVaccino}%` };
+-    }
++    const where: WhereOptions<VaccinazioneAttributes> = {
++        userCf,
++        ...(dataVaccinazione && { dataVaccinazione }),
++    };
++
++    const nome: WhereOperators<string> | undefined = filters.nomeVaccino
++        ? { [Op.iLike]: `%${filters.nomeVaccino}%` }
++        : undefined;
++
++    const vaccinoWhere: WhereOptions<VaccinoAttributes> = {
++        ...(nome && { nome }),
++    };
+ 
+     return Vaccinazione.findAll({
+         where,
+diff --git a/src/dao/VaccinoDao.ts b/src/dao/VaccinoDao.ts
+index c152984..f7031e1 100644
+--- a/src/dao/VaccinoDao.ts
++++ b/src/dao/VaccinoDao.ts
+@@ -1,5 +1,5 @@
+ import { IDao } from "./IDao";
+-import { Op, fn, col, literal } from "sequelize";
++import { Op, fn, col, literal, WhereOptions, WhereOperators } from "sequelize";
+ import { sequelize } from "../connector/connector";
+ import { QueryTypes } from "sequelize";
+ import {
+@@ -7,9 +7,21 @@ import {
+     VaccinoAttributes,
+     VaccinoCreationAttributes
+ } from "../model/Vaccino";
+-import { LottoVaccino } from "../model/LottoVaccino";
++import { LottoVaccino, LottoVaccinoAttributes } from "../model/LottoVaccino";
+ import { Vaccinazione } from "../model/Vaccinazione";
+ 
++/*
++    * Filtri opzionali accettati da searchVaccini. Arrivano tipicamente da req.query,
++    * quindi ogni valore è la stringa così come ricevuta dalla querystring.
++    */
++export interface VaccinoSearchFilters {
++    nome?: string;
++    scadenzaMaggioreDi?: string;
++    scadenzaMinoreDi?: string;
++    disponibilitaMin?: string;
++    disponibilitaMax?: string;
++}
++
+ 
+ /*
+     * Classe DAO per la gestione delle operazioni CRUD sui vaccini.
+@@ -55,36 +67,32 @@ export class VaccinoDao implements IDao<Vaccino> {
+     * @returns Un array di vaccini che soddisfano i criteri di ricerca, con la disponibilità totale calcolata per ciascun vaccino.
+ */
+ 
+-    async searchVaccini(filters: any) {
+-
+-        const whereVaccino: any = {};
+-        const whereLotto: any = {};
++    async searchVaccini(filters: VaccinoSearchFilters) {
+ 
+         // ======================
+         // FILTRO NOME
+         // ======================
+ 
+-        if (filters.nome) {
++        const nome: WhereOperators<string> | undefined = filters.nome
++            ? { [Op.in]: filters.nome.split(",").map((n) => n.trim()) }
++            : undefined;
+ 
+-            const nomi = String(filters.nome)
+-                .split(",")
+-                .map((n: string) => n.trim());
+-
+-            whereVaccino.nome = {
+-                [Op.in]: nomi
+-            };
+-        }
++        const whereVaccino: WhereOptions<VaccinoAttributes> = {
++            ...(nome && { nome }),
++        };
+ 
+         // ======================
+         // FILTRO SCADENZA
+         // ======================
+ 
++        let dataScadenza: WhereOperators<Date> | undefined;
++
+         if (
+             filters.scadenzaMaggioreDi &&
+             filters.scadenzaMinoreDi
+         ) {
+ 
+-            whereLotto.dataScadenza = {
++            dataScadenza = {
+                 [Op.between]: [
+                     new Date(filters.scadenzaMaggioreDi),
+                     new Date(filters.scadenzaMinoreDi)
+@@ -93,17 +101,21 @@ export class VaccinoDao implements IDao<Vaccino> {
+ 
+         } else if (filters.scadenzaMaggioreDi) {
+ 
+-            whereLotto.dataScadenza = {
++            dataScadenza = {
+                 [Op.gte]: new Date(filters.scadenzaMaggioreDi)
+             };
+ 
+         } else if (filters.scadenzaMinoreDi) {
+ 
+-            whereLotto.dataScadenza = {
++            dataScadenza = {
+                 [Op.lte]: new Date(filters.scadenzaMinoreDi)
+             };
+         }
+ 
++        const whereLotto: WhereOptions<LottoVaccinoAttributes> = {
++            ...(dataScadenza && { dataScadenza }),
++        };
++
+         const vaccini = await Vaccino.findAll({
+ 
+             where: whereVaccino,
+@@ -160,7 +172,7 @@ export class VaccinoDao implements IDao<Vaccino> {
+             disponibilitaMax === undefined
+         ) {
+             result = result.filter(
+-                (v: any) =>
++                (v) =>
+                     Number(
+                         v.get("disponibilitaTotale")
+                     ) >= disponibilitaMin
+@@ -174,7 +186,7 @@ export class VaccinoDao implements IDao<Vaccino> {
+             disponibilitaMin === undefined
+         ) {
+             result = result.filter(
+-                (v: any) =>
++                (v) =>
+                     Number(
+                         v.get("disponibilitaTotale")
+                     ) <= disponibilitaMax
+@@ -188,7 +200,7 @@ export class VaccinoDao implements IDao<Vaccino> {
+             disponibilitaMax !== undefined
+         ) {
+             result = result.filter(
+-                (v: any) => {
++                (v) => {
+ 
+                     const q = Number(
+                         v.get("disponibilitaTotale")
+@@ -234,7 +246,7 @@ export class VaccinoDao implements IDao<Vaccino> {
+             ]
+         });
+ 
+-        return vaccini.map((vaccino: any) => {
++        return vaccini.map((vaccino) => {
+ 
+             const mesi: Record<number, number[]> = {};
+ 
+@@ -256,9 +268,9 @@ export class VaccinoDao implements IDao<Vaccino> {
+                     mesi[mese] = [];
+                 }
+ 
+-                let posizioneAnno =
++                const posizioneAnno =
+                     mesi[mese].findIndex(
+-                        (_: any, index: number) => false
++                        (_, index) => false
+                     );
+ 
+                 // uso una mappa temporanea
+@@ -350,7 +362,7 @@ export class VaccinoDao implements IDao<Vaccino> {
+ 
+                             lotti.reduce(
+ 
+-                                (somma: number, lotto: any) =>
++                                (somma: number, lotto) =>
+                                     somma +
+                                     lotto.quantitaDisponibile,
+ 
+diff --git a/src/middleware/auth.middleware.ts b/src/middleware/auth.middleware.ts
+index a2d7a80..fdb23d3 100644
+--- a/src/middleware/auth.middleware.ts
++++ b/src/middleware/auth.middleware.ts
+@@ -27,10 +27,10 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
+ 
+     try {
+         const payload = jwt.verify(token, publicKey, { algorithms: ["RS256"] }) as AppJwtPayload;
+-        (req as any).user = payload;
++        req.user = payload;
+         next();
+-    } catch (error: any) {
+-        if (error.name === "TokenExpiredError") {
++    } catch (error) {
++        if (error instanceof jwt.TokenExpiredError) {
+             res.status(401).json({ error: AppErrorsMessage.TOKEN_EXPIRED });
+         } else {
+             res.status(401).json({ error: AppErrorsMessage.INVALID_TOKEN });
+@@ -46,7 +46,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
+ 
+ export function requireRole(...roles: ("user" | "operator" | "admin" | "both")[]) {
+     return (req: Request, res: Response, next: NextFunction): void => {
+-        const user = (req as any).user as AppJwtPayload;
++        const user = req.user;
+ 
+         if (!user || !roles.some(role => user.roles.includes(role))) {
+             res.status(403).json({ error: AppErrorsMessage.PERMISSION_DENIED });
+diff --git a/src/middleware/lottovaccino.middleware.ts b/src/middleware/lottovaccino.middleware.ts
+index 1b0011a..5bb642b 100644
+--- a/src/middleware/lottovaccino.middleware.ts
++++ b/src/middleware/lottovaccino.middleware.ts
+@@ -18,7 +18,7 @@ export async function checkVaccinoExists(req: Request, res: Response, next: Next
+         return;
+     }
+ 
+-    (req as any).vaccino = vaccino;
++    req.vaccino = vaccino;
+     next();
+ }
+ 
+diff --git a/src/middleware/redis.middleware.ts b/src/middleware/redis.middleware.ts
+index e918fe9..4d5c1a4 100644
+--- a/src/middleware/redis.middleware.ts
++++ b/src/middleware/redis.middleware.ts
+@@ -18,6 +18,6 @@ export async function userExist(req: Request, res: Response, next: NextFunction)
+         return;
+     }
+ 
+-    (req as any).targetUser = user;
++    req.targetUser = user;
+     next();
+ }
+\ No newline at end of file
+diff --git a/src/middleware/token.middleware.ts b/src/middleware/token.middleware.ts
+index efa6265..a39e13a 100644
+--- a/src/middleware/token.middleware.ts
++++ b/src/middleware/token.middleware.ts
+@@ -1,14 +1,13 @@
+ // middleware/tokenMiddleware.ts
+ import { Request, Response, NextFunction } from "express";
+ import { userDao } from "../dao/UserDao";
+-import { AppJwtPayload } from "../types/jwt-payload";
+ import { AppErrorsMessage } from "../enum/AppErrorsMessage";
+ 
+ 
+ // Funzione per check dei token
+ 
+ export async function checkTokenAvailability(req: Request, res: Response, next: NextFunction): Promise<void> {
+-    const user = (req as any).user as AppJwtPayload;
++    const user = req.user!;
+ 
+     const ok = await userDao.decrementTokenIfAvailable(user.cf);
+     if (!ok) {
+diff --git a/src/middleware/vaccinazione.middleware.ts b/src/middleware/vaccinazione.middleware.ts
+index 405108b..d2a6720 100644
+--- a/src/middleware/vaccinazione.middleware.ts
++++ b/src/middleware/vaccinazione.middleware.ts
+@@ -20,7 +20,7 @@ export async function checkUserExists(req: Request, res: Response, next: NextFun
+         return;
+     }
+ 
+-    (req as any).targetUser = user;
++    req.targetUser = user;
+     next();
+ }
+ 
+@@ -39,14 +39,14 @@ export async function checkLottoValid(req: Request, res: Response, next: NextFun
+         return;
+     }
+ 
+-    (req as any).lotto = lotto;
++    req.lotto = lotto;
+     next();
+ }
+ 
+ // 3. Vaccino (lotto) non scaduto rispetto alla data di vaccinazione
+ export async function checkVaccineNotExpired(req: Request, res: Response, next: NextFunction): Promise<void> {
+     const { data_vaccinazione } = req.body;
+-    const lotto = (req as any).lotto;
++    const lotto = req.lotto!;
+ 
+     if (!data_vaccinazione) {
+         res.status(400).json({ error: AppErrorsMessage.MISSING_DATA });
+@@ -65,15 +65,15 @@ export async function checkVaccineNotExpired(req: Request, res: Response, next:
+         return;
+     }
+ 
+-    (req as any).dataVaccinazione = dataVacc;
++    req.dataVaccinazione = dataVacc;
+     next();
+ }
+ 
+ // 4. Copertura non ancora esaurita (vaccinazione anticipata)
+ export async function checkCoverageExpired(req: Request, res: Response, next: NextFunction): Promise<void> {
+     const { cf } = req.body;
+-    const lotto = (req as any).lotto;
+-    const dataVacc = (req as any).dataVaccinazione;
++    const lotto = req.lotto!;
++    const dataVacc = req.dataVaccinazione!;
+ 
+     const vaccino = await vaccinoDao.findById(lotto.vaccinoId);
+     if (!vaccino) {
+@@ -93,7 +93,7 @@ export async function checkCoverageExpired(req: Request, res: Response, next: Ne
+         }
+     }
+ 
+-    (req as any).vaccino = vaccino;
++    req.vaccino = vaccino;
+     next();
+ }
+ 
+diff --git a/src/middleware/vaccino.middleware.ts b/src/middleware/vaccino.middleware.ts
+index 8bd1642..eebea68 100644
+--- a/src/middleware/vaccino.middleware.ts
++++ b/src/middleware/vaccino.middleware.ts
+@@ -18,7 +18,7 @@ export async function checkVaccinoExistsById(req: Request, res: Response, next:
+         return;
+     }
+ 
+-    (req as any).targetVaccino = vaccino;
++    req.targetVaccino = vaccino;
+     next();
+ }
+ 
+@@ -65,7 +65,7 @@ export async function checkNomeVaccinoExists(req: Request, res: Response, next:
+     }
+ 
+     // salva il vaccino trovato per evitare query duplicate nel controller
+-    (req as any).vaccinoFiltro = vaccino;
++    req.vaccinoFiltro = vaccino;
+     next();
+ }
+ 
+@@ -127,7 +127,7 @@ const { nomeVaccino } = req.query;
+     }
+ 
+     // salva i vaccini trovati per evitare query duplicate nel controller
+-    (req as any).vaccinoFiltro = risultati;
++    req.vaccinoFiltro = risultati;
+     next();
+ }
+ 
+diff --git a/src/model/LottoVaccino.ts b/src/model/LottoVaccino.ts
+index a210d42..04546c1 100644
+--- a/src/model/LottoVaccino.ts
++++ b/src/model/LottoVaccino.ts
+@@ -20,8 +20,7 @@ export interface LottoVaccinoAttributes {
+ // Interfaccia per creazione attributi vaccino
+ 
+ 
+-export interface LottoVaccinoCreationAttributes
+-    extends Optional<LottoVaccinoAttributes, 'id'> {}
++export type LottoVaccinoCreationAttributes = Optional<LottoVaccinoAttributes, 'id'>;
+ 
+ // Model classe lottovaccino che estende le due interfaccie
+ 
+diff --git a/src/model/User.ts b/src/model/User.ts
+index d9b7157..2b8c054 100644
+--- a/src/model/User.ts
++++ b/src/model/User.ts
+@@ -1,5 +1,6 @@
+ import * as Sequelize from 'sequelize';
+ import { DataTypes, Optional, Model } from 'sequelize';
++import type { Vaccinazione } from './Vaccinazione';
+ 
+ /*
+     * Modello Sequelize per la tabella "users".
+@@ -18,7 +19,7 @@ export interface UserAttributes {
+     role: 'admin' | 'user' | 'operator' | 'both'; // "both" = utente con ruoli sia user che operator
+ }
+ 
+-export interface UserCreationAttributes extends Optional<UserAttributes, 'cf' | 'token'> { }
++export type UserCreationAttributes = Optional<UserAttributes, 'cf' | 'token'>;
+ 
+ // Classe modello User, implementa gli attributi definiti sopra
+ 
+@@ -32,6 +33,10 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
+ 
+     public readonly createdAt!: Date;
+     public readonly updatedAt!: Date;
++
++    // Popolato solo quando la query usa { include: [{ model: Vaccinazione, as: "vaccinazioni" }] }
++    // (vedi User.hasMany(Vaccinazione, { as: "vaccinazioni" }) in Init_models.ts).
++    public readonly vaccinazioni?: Vaccinazione[];
+ }
+ 
+ /*
+diff --git a/src/model/Vaccinazione.ts b/src/model/Vaccinazione.ts
+index da4bc88..982825e 100644
+--- a/src/model/Vaccinazione.ts
++++ b/src/model/Vaccinazione.ts
+@@ -1,5 +1,7 @@
+ import * as Sequelize from 'sequelize';
+ import { DataTypes, Optional, Model } from 'sequelize';
++import type { Vaccino } from './Vaccino';
++import type { LottoVaccino } from './LottoVaccino';
+ 
+ /*
+     * Modello Sequelize per la tabella "vaccinazioni".
+@@ -24,8 +26,7 @@ export interface VaccinazioneAttributes {
+ 
+ // Interfaccia per la creazione
+ 
+-export interface VaccinazioneCreationAttributes
+-    extends Optional<VaccinazioneAttributes, 'id'> {}
++export type VaccinazioneCreationAttributes = Optional<VaccinazioneAttributes, 'id'>;
+ 
+ // Classe modello Vaccinazione, implementa gli attributi definiti sopra
+ 
+@@ -48,6 +49,12 @@ export class Vaccinazione
+ 
+     public readonly createdAt!: Date;
+     public readonly updatedAt!: Date;
++
++    // Popolate solo quando la query le include esplicitamente (vedi
++    // Vaccinazione.belongsTo(Vaccino) e Vaccinazione.belongsTo(LottoVaccino) in Init_models.ts;
++    // nessuno dei due ha un alias esplicito, quindi Sequelize usa il nome del modello).
++    public readonly Vaccino?: Vaccino;
++    public readonly LottoVaccino?: LottoVaccino;
+ }
+ 
+ /*
+diff --git a/src/model/Vaccino.ts b/src/model/Vaccino.ts
+index e072b91..0bd051f 100644
+--- a/src/model/Vaccino.ts
++++ b/src/model/Vaccino.ts
+@@ -1,5 +1,7 @@
+ import * as Sequelize from 'sequelize';
+ import { DataTypes, Optional, Model } from 'sequelize';
++import type { LottoVaccino } from './LottoVaccino';
++import type { Vaccinazione } from './Vaccinazione';
+ 
+ /*
+     * Modello Sequelize per la tabella "vaccini".
+@@ -17,8 +19,7 @@ export interface VaccinoAttributes {
+ 
+ // Interfaccia per la creazione
+ 
+-export interface VaccinoCreationAttributes
+-    extends Optional<VaccinoAttributes, 'id'> {}
++export type VaccinoCreationAttributes = Optional<VaccinoAttributes, 'id'>;
+ 
+ // Classe modello Vaccino, implementa gli attributi definiti sopra
+ 
+@@ -32,6 +33,12 @@ export class Vaccino
+ 
+     public readonly createdAt!: Date;
+     public readonly updatedAt!: Date;
++
++    // Popolate solo quando la query le include esplicitamente (vedi le associazioni
++    // Vaccino.hasMany(LottoVaccino, { as: "lotti" }) e Vaccino.hasMany(Vaccinazione) in Init_models.ts;
++    // quest'ultima non ha un alias esplicito, quindi Sequelize usa il default "Vaccinaziones").
++    public readonly lotti?: LottoVaccino[];
++    public readonly Vaccinaziones?: Vaccinazione[];
+ }
+ 
+ /*
+diff --git a/src/server.ts b/src/server.ts
+index eef3a98..26ec5a4 100644
+--- a/src/server.ts
++++ b/src/server.ts
+@@ -58,13 +58,14 @@ app.use("/api", lottoVaccinoRoutes);
+ app.use("/api/vaccinazioni", vaccinazioneRoutes)
+ 
+ // Error handler globale
+-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
++const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => {
+   console.log("ERRORE COMPLETO:", err);
+   if (err.status === 401) {
+     return res.status(401).json({ error: AppErrorsMessage.INVALID_JWT_TOKEN });
+   }
+   return res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });
+-});
++};
++app.use(errorHandler);
+ 
+ app.listen(process.env.PORT || 3000, () => {
+   console.log("Server running on http://localhost:3000");
+diff --git a/src/service/LottoVaccinoService.ts b/src/service/LottoVaccinoService.ts
+index 6e770d4..b3be08e 100644
+--- a/src/service/LottoVaccinoService.ts
++++ b/src/service/LottoVaccinoService.ts
+@@ -6,18 +6,28 @@ import { lottoVaccinoDao } from "../dao/LottoVaccinoDao";
+     * Utilizza il LottoVaccinoDao per interagire con il database.
+     */
+ 
++/*
++    * Corpo della richiesta di creazione di un lotto. Le date arrivano come stringa
++    * dal JSON del body (req.body), per questo sono tipizzate string | Date.
++    */
++export interface LottoVaccinoCreationPayload {
++    codiceLotto: string;
++    quantitaDisponibile: number;
++    dataConsegna: string | Date;
++    dataScadenza: string | Date;
++}
+ 
+ export class LottoVaccinoService {
+ 
+-    async createLotto(vaccinoId: number, data: any) {
++    async createLotto(vaccinoId: number, data: LottoVaccinoCreationPayload) {
+         // vaccino esistente e unicità codiceLotto già verificati dai middleware
+         // checkVaccinoExists e checkCodiceLottoUnique sulla rotta
+         return lottoVaccinoDao.create({
+             vaccinoId,
+             codiceLotto: data.codiceLotto,
+             quantitaDisponibile: data.quantitaDisponibile,
+-            dataConsegna: data.dataConsegna,
+-            dataScadenza: data.dataScadenza
++            dataConsegna: new Date(data.dataConsegna),
++            dataScadenza: new Date(data.dataScadenza)
+         });
+     }
+ 
+diff --git a/src/service/VaccinazioneService.ts b/src/service/VaccinazioneService.ts
+index bfee79f..c6cf264 100644
+--- a/src/service/VaccinazioneService.ts
++++ b/src/service/VaccinazioneService.ts
+@@ -204,7 +204,7 @@ export class VaccinazioneService {
+ 
+                 let y = drawTableHeader(doc.y);
+ 
+-                for (const v of vaccinazioni as any[]) {
++                for (const v of vaccinazioni) {
+                     if (y > doc.page.height - 80) {
+                         doc.addPage();
+                         y = drawTableHeader(50);
+@@ -267,9 +267,9 @@ export class VaccinazioneService {
+         const vaccinazioni = await vaccinazioneDao.findAllWithDetails(userCf);
+         const oggi = new Date();
+ 
+-        const results: CoperturaResult[] = (vaccinazioni as any[]).map((v) => {
++        const results: CoperturaResult[] = vaccinazioni.map((v) => {
+             const dataVacc = new Date(v.dataVaccinazione);
+-            const durata = v.Vaccino.durataCopertura;
++            const durata = v.Vaccino!.durataCopertura;
+ 
+             const fineCopertura = new Date(dataVacc);
+             fineCopertura.setDate(fineCopertura.getDate() + durata);
+@@ -280,7 +280,7 @@ export class VaccinazioneService {
+             return {
+                 vaccinazioneId: v.id,
+                 userCf: v.userCf,
+-                vaccino: v.Vaccino.nome,
++                vaccino: v.Vaccino!.nome,
+                 dataVaccinazione: dataVacc,
+                 fineCopertura,
+                 giorniDifferenza,
+@@ -316,7 +316,7 @@ export class VaccinazioneService {
+ 
+         const oggi = new Date();
+ 
+-        vaccinazioni.sort((a: any, b: any) => {
++        vaccinazioni.sort((a, b) => {
+             const fineA = new Date(a.dataVaccinazione);
+             fineA.setDate(fineA.getDate() + (a.Vaccino?.durataCopertura ?? 0));
+ 
+@@ -392,7 +392,7 @@ export class VaccinazioneService {
+ 
+                 let y = drawTableHeader(doc.y);
+ 
+-                for (const v of vaccinazioni as any[]) {
++                for (const v of vaccinazioni) {
+                     if (y > doc.page.height - 80) {
+                         doc.addPage();
+                         y = drawTableHeader(50);
+diff --git a/src/service/VaccinoService.ts b/src/service/VaccinoService.ts
+index da505a7..4339ea0 100644
+--- a/src/service/VaccinoService.ts
++++ b/src/service/VaccinoService.ts
+@@ -1,4 +1,4 @@
+-import { vaccinoDao } from "../dao/VaccinoDao";
++import { vaccinoDao, VaccinoSearchFilters } from "../dao/VaccinoDao";
+ import { userDao } from "../dao/UserDao";
+ 
+ 
+@@ -30,7 +30,7 @@ export class VaccinoService {
+         return vaccinoDao.findById(targetId);
+     }
+ 
+-    async searchVaccini(filters: any) {
++    async searchVaccini(filters: VaccinoSearchFilters) {
+         return vaccinoDao.searchVaccini(filters);
+     }
+ 
+diff --git a/src/test/token.middleware.test.ts b/src/test/token.middleware.test.ts
+index 835d342..fb7650a 100644
+--- a/src/test/token.middleware.test.ts
++++ b/src/test/token.middleware.test.ts
+@@ -1,17 +1,18 @@
++import { Request, Response } from "express";
+ import { correctAmount } from "../middleware/token.middleware";
+ import { AppErrorsMessage } from "../enum/AppErrorsMessage";
+ 
+ describe("correctAmount", () => {
+ 
+     test("restituisce 400 se amount manca", async () => {
+-        const req: any = {
++        const req = {
+             body: {}
+-        };
++        } as Partial<Request> as Request;
+ 
+-        const res: any = {
++        const res = {
+             status: jest.fn().mockReturnThis(),
+             json: jest.fn()
+-        };
++        } as Partial<Response> as Response;
+ 
+         const next = jest.fn();
+ 
+@@ -25,16 +26,16 @@ describe("correctAmount", () => {
+     });
+ 
+     test("chiama next se amount è valido", async () => {
+-        const req: any = {
++        const req = {
+             body: {
+                 amount: 10
+             }
+-        };
++        } as Partial<Request> as Request;
+ 
+-        const res: any = {
++        const res = {
+             status: jest.fn().mockReturnThis(),
+             json: jest.fn()
+-        };
++        } as Partial<Response> as Response;
+ 
+         const next = jest.fn();
+ 
+diff --git a/src/test/vaccino.middleware.test.ts b/src/test/vaccino.middleware.test.ts
+index 64e8285..de06adc 100644
+--- a/src/test/vaccino.middleware.test.ts
++++ b/src/test/vaccino.middleware.test.ts
+@@ -1,3 +1,4 @@
++import { Request, Response } from "express";
+ import { checkVaccinoExistsById, checkVaccinoQueryExistsById } from "../middleware/vaccino.middleware";
+ import { vaccinoDao } from "../dao/VaccinoDao";
+ import { AppErrorsMessage } from "../enum/AppErrorsMessage";
+@@ -17,14 +18,14 @@ describe("checkVaccinoExistsById", () => {
+             nome: "Pfizer"
+         });
+ 
+-        const req: any = {
++        const req = {
+             params: { id: "1" }
+-        };
++        } as Partial<Request> as Request;
+ 
+-        const res: any = {
++        const res = {
+             status: jest.fn().mockReturnThis(),
+             json: jest.fn()
+-        };
++        } as Partial<Response> as Response;
+ 
+         const next = jest.fn();
+ 
+@@ -38,14 +39,14 @@ describe("checkVaccinoExistsById", () => {
+         .mockResolvedValueOnce({ id: 1, nome: "Pfizer" })
+         .mockResolvedValueOnce({ id: 2, nome: "Moderna" });
+ 
+-    const req: any = {
++    const req = {
+         query: { nomeVaccino: "Pfizer, Moderna" }
+-    };
++    } as Partial<Request> as Request;
+ 
+-    const res: any = {
++    const res = {
+         status: jest.fn().mockReturnThis(),
+         json: jest.fn()
+-    };
++    } as Partial<Response> as Response;
+ 
+     const next = jest.fn();
+ 
+diff --git a/src/utils/UserSerializer.ts b/src/utils/UserSerializer.ts
+index 3549b3a..3d5f0e5 100644
+--- a/src/utils/UserSerializer.ts
++++ b/src/utils/UserSerializer.ts
+@@ -1,9 +1,11 @@
+-import { User } from "../model/User";
++import { User, UserAttributes } from "../model/User";
++
++export type PublicUser = Omit<UserAttributes, "passwordHash">;
+ 
+ /**
+  * Rimuove il passwordHash dall'oggetto User per evitare di esporlo nelle risposte API
+  */
+-export function sanitizeUser(user: User): any {
++export function sanitizeUser(user: User): PublicUser {
+     const userObj = user instanceof User ? user.toJSON() : user;
+     const { passwordHash, ...userWithoutPassword } = userObj;
+     return userWithoutPassword;
+@@ -12,6 +14,6 @@ export function sanitizeUser(user: User): any {
+ /**
+  * Rimuove il passwordHash da un array di utenti
+  */
+-export function sanitizeUsers(users: User[]): any[] {
++export function sanitizeUsers(users: User[]): PublicUser[] {
+     return users.map(sanitizeUser);
+ }

@@ -1,7 +1,7 @@
 import { IDao } from "./IDao";
 import { Vaccinazione, VaccinazioneAttributes, VaccinazioneCreationAttributes } from "../model/Vaccinazione";
-import { Op, WhereOptions, Transaction } from "sequelize";
-import { Vaccino } from "../model/Vaccino";
+import { Op, WhereOptions, WhereOperators, Transaction } from "sequelize";
+import { Vaccino, VaccinoAttributes } from "../model/Vaccino";
 import { LottoVaccino } from "../model/LottoVaccino";
 
 
@@ -114,21 +114,30 @@ export class VaccinazioneDao implements IDao<Vaccinazione> {
     */
 
     async findFilteredByUserCf(userCf: string, filters: VaccinazioneFilters): Promise<Vaccinazione[]> {
-    const where: WhereOptions = { userCf };
+
+    let dataVaccinazione: WhereOperators<Date> | undefined;
 
     // Filtro data: range ha priorità se entrambi min e max sono presenti
     if (filters.dataMin && filters.dataMax) {
-        (where as any).dataVaccinazione = { [Op.between]: [filters.dataMin, filters.dataMax] };
+        dataVaccinazione = { [Op.between]: [filters.dataMin, filters.dataMax] };
     } else if (filters.dataGt) {
-        (where as any).dataVaccinazione = { [Op.gt]: filters.dataGt };
+        dataVaccinazione = { [Op.gt]: filters.dataGt };
     } else if (filters.dataLt) {
-        (where as any).dataVaccinazione = { [Op.lt]: filters.dataLt };
+        dataVaccinazione = { [Op.lt]: filters.dataLt };
     }
 
-    const vaccinoWhere: WhereOptions = {};
-    if (filters.nomeVaccino) {
-        (vaccinoWhere as any).nome = { [Op.iLike]: `%${filters.nomeVaccino}%` };
-    }
+    const where: WhereOptions<VaccinazioneAttributes> = {
+        userCf,
+        ...(dataVaccinazione && { dataVaccinazione }),
+    };
+
+    const nome: WhereOperators<string> | undefined = filters.nomeVaccino
+        ? { [Op.iLike]: `%${filters.nomeVaccino}%` }
+        : undefined;
+
+    const vaccinoWhere: WhereOptions<VaccinoAttributes> = {
+        ...(nome && { nome }),
+    };
 
     return Vaccinazione.findAll({
         where,
