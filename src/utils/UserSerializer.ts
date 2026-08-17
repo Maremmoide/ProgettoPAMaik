@@ -7,7 +7,7 @@ export type PublicUser = Omit<UserAttributes, "passwordHash">;
  */
 export function sanitizeUser(user: User): PublicUser {
     const userObj = user instanceof User ? user.toJSON() : user;
-    const { passwordHash, ...userWithoutPassword } = userObj;
+    const { passwordHash: _passwordHash, ...userWithoutPassword } = userObj;
     return userWithoutPassword;
 }
 

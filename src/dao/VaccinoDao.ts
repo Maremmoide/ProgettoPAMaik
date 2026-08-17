@@ -246,26 +246,6 @@ export class VaccinoDao implements IDao<Vaccino> {
 
         return vaccini.map((vaccino) => {
 
-            const mesi: Record<number, number[]> = {};
-
-            // ==========================
-            // DOSI SOMMINISTRATE PER ANNO
-            // ==========================
-
-            for (const vaccinazione of vaccino.Vaccinaziones ?? []) {
-
-                const data = new Date(
-                    vaccinazione.dataVaccinazione
-                );
-
-                const mese = data.getMonth() + 1;
-
-                if (!mesi[mese]) {
-                    mesi[mese] = [];
-                };
-                // uso una mappa temporanea
-            }
-
             // conta vaccinazioni per mese/anno
 
             const conteggi: Record<number, Record<number, number>> = {};

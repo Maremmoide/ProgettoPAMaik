@@ -78,7 +78,9 @@ export class UserController {
 
     async updateUser(req: Request, res: Response): Promise<void> {
         try {
-            const user = await userService.updateUser(req.params.cf, req.body);
+            // ":cf" non è un parametro ripetuto/wildcard, quindi è sempre una singola stringa
+            const cf = req.params.cf as string;
+            const user = await userService.updateUser(cf, req.body);
             
             if (!user) {
                 res.status(404).json({ error: AppErrorsMessage.SERVER_ERROR });
@@ -99,7 +101,9 @@ export class UserController {
 
     async deleteUser(req: Request, res: Response): Promise<void> {
         try {
-            await userService.deleteUser(req.params.cf);
+            // ":cf" non è un parametro ripetuto/wildcard, quindi è sempre una singola stringa
+            const cf = req.params.cf as string;
+            await userService.deleteUser(cf);
             res.status(200).json({ message: AppSuccessMessage.USER_DELETED });
         } catch {
             res.status(500).json({ error: AppErrorsMessage.SERVER_ERROR });

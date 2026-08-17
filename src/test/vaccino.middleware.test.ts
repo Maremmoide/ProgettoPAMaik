@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { checkVaccinoExistsById, checkVaccinoQueryExistsById } from "../middleware/vaccino.middleware";
 import { vaccinoDao } from "../dao/VaccinoDao";
-import { AppErrorsMessage } from "../enum/AppErrorsMessage";
 
 jest.mock("../dao/VaccinoDao", () => ({
     vaccinoDao: {

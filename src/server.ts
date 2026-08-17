@@ -9,40 +9,13 @@ import vaccinoRoutes from "./routes/vaccino";
 import vaccinazioneRoutes from "./routes/vaccinazione";
 import lottoVaccinoRoutes from "./routes/lottovaccino";
 import { AppErrorsMessage } from "./enum/AppErrorsMessage";
-import {connectRedis}  from "./config/redis";
+import { connectRedis } from "./config/redis";
 
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
-
-
-// Avvio redis
-const start = async () => {
-    try {
-        await connectRedis(); 
-
-        app.listen(3000, () => {
-            console.log("Server avviato su porta 3000");
-        });
-    } catch (err) {
-        console.error("Errore avvio server:", err);
-        process.exit(1);
-    }
-};
-
-start();
-
-
-// Connessione DB + sync tabelle
-sequelize.getSequelize().authenticate()
-  .then(() => {
-    console.log("Database connesso!");
-    return sequelize.getSequelize().sync({ alter: true }); 
-  })
-  .then(() => console.log("Tabelle sincronizzate!"))
-  .catch((err: unknown) => console.error("Errore connessione DB:", err));
 
 // Route pubbliche
 app.get("/", (req, res) => {
@@ -58,7 +31,7 @@ app.use("/api", lottoVaccinoRoutes);
 app.use("/api/vaccinazioni", vaccinazioneRoutes)
 
 // Error handler globale
-const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => {
+const errorHandler: express.ErrorRequestHandler = (err, req, res, _next) => {
   console.log("ERRORE COMPLETO:", err);
   if (err.status === 401) {
     return res.status(401).json({ error: AppErrorsMessage.INVALID_JWT_TOKEN });
@@ -67,6 +40,24 @@ const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => {
 };
 app.use(errorHandler);
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Server running on http://localhost:3000");
-});
+// Avvio: redis e DB vengono confermati prima di iniziare ad accettare richieste
+const start = async () => {
+    try {
+        await connectRedis();
+
+        await sequelize.getSequelize().authenticate();
+        console.log("Database connesso!");
+        await sequelize.getSequelize().sync({ alter: true });
+        console.log("Tabelle sincronizzate!");
+
+        const port = process.env.PORT || 3000;
+        app.listen(port, () => {
+            console.log(`Server avviato su porta ${port}`);
+        });
+    } catch (err) {
+        console.error("Errore avvio server:", err);
+        process.exit(1);
+    }
+};
+
+start();
