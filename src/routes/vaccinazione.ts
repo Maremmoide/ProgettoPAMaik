@@ -49,5 +49,6 @@ router.patch('/:id', authenticate, requireRole("operator", "admin"), userExist, 
 
 // cancellazione vaccinazione
 router.delete('/:id', authenticate, requireRole("admin", "operator"), vaccinazioneController.deleteVaccinazione);
+// prova
 
 export default router;
