@@ -26,9 +26,10 @@ app.get("/", (req, res) => {
 app.use("/api", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api", adminRoutes);
+app.use("/api/vaccinazioni", vaccinazioneRoutes)
 app.use("/api", vaccinoRoutes)
 app.use("/api", lottoVaccinoRoutes);
-app.use("/api/vaccinazioni", vaccinazioneRoutes)
+
 
 // Error handler globale
 const errorHandler: express.ErrorRequestHandler = (err, req, res, _next) => {
