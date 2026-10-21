@@ -166,7 +166,7 @@ Seguono le API implementate.
 | /vaccini | GET | Admin | Legge tutti i vaccini |
 | /vacciniFIltrati | GET | Admin | Legge i vaccini filtrandoli tramite query |
 | /statistiche | GET | Admin | Ottiene le statistiche generali sui vaccini |
-| /statistuche/copertura | GET | Admin | Ottiene statistiche sulle coperture |
+| /statistiche/copertura | GET | Admin | Ottiene statistiche sulle coperture |
 | /:id | GET | Admin, Operator | Ottiene un singolo vaccino specificando un id |
 | /:id | PATCH | Admin | Aggiorna un vaccino specificando un id |
 | /:id | DELETE | Admin | Cancella un vaccino specificando un id |
@@ -802,7 +802,7 @@ Il body è vuoto mentre se la richiesta ha successo il risultato sarà un json c
 ### Richiesta
 
 ```http
-GET /vaccinaizoni/1 HTTP/1.1
+GET /vaccinazioni/1 HTTP/1.1
 Content-Type: application/json
 ```
 ### Body
@@ -831,7 +831,7 @@ Il body contiene le informazioni per creare la vaccinazione mentre se la richies
 ### Richiesta
 
 ```http
-POST /vaccinaizoni HTTP/1.1
+POST /vaccinazioni HTTP/1.1
 Content-Type: application/json
 ```
 ### Body
@@ -881,7 +881,7 @@ Content-Type: application/json
 ### Richiesta con successo
 ```
 {
-    "message": "Vaccizazione aggiornata correttamente",
+    "message": "Vaccinazione aggiornata correttamente",
     "vaccinazione": {
         "id": 2,
         "userCf": "RSSMRA80A01H501U",
@@ -904,7 +904,7 @@ Il body è vuoto mentre se la richiesta ha successo il risultato sarà un messag
 ### Richiesta
 
 ```http
-DELETE /vaccinaizoni/1 HTTP/1.1
+DELETE /vaccinazioni/1 HTTP/1.1
 Content-Type: application/json
 ```
 ### Body
@@ -914,7 +914,7 @@ Content-Type: application/json
 ### Richiesta con successo
 ```
 {
-    "message": "Vaccinazione cancellatta correttamente"
+    "message": "Vaccinazione cancellata correttamente"
 }
 ```
 
