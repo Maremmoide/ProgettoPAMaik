@@ -936,9 +936,9 @@ Content-Type: application/json
 ```
 ```
 ### Richiesta con successo
-```
+
 ![GetPDF](images/getpdf.png)
-```
+
 ## GET /filtrareuseradmin
 
 Rotta utilizzata per vedere le vaccinazioni filtrare utilizzabile solo dall'admin.
@@ -1052,9 +1052,9 @@ Content-Type: application/json
 ```
 ```
 ### Richiesta con successo
-```
+
 ![CoperturaPDF](images/coperturapdf.png)
-```
+
 
 ## GET /copertura/code
 
