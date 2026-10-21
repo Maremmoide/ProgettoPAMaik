@@ -937,7 +937,7 @@ Content-Type: application/json
 ```
 ### Richiesta con successo
 ```
-mettere immagine
+![GetPDF](images/getpdf.png)
 ```
 ## GET /filtrareuseradmin
 
@@ -1053,7 +1053,7 @@ Content-Type: application/json
 ```
 ### Richiesta con successo
 ```
-immagine
+![CoperturaPDF](images/coperturapdf.png)
 ```
 
 ## GET /copertura/code
